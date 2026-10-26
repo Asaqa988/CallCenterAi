@@ -1,0 +1,24 @@
+# Image for hosting the bot on Railway (or any container host).
+# The existing ./Dockerfile is for Pipecat Cloud and is not used here.
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install dependencies first so this layer is cached between code changes.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-install-project --no-dev
+
+# The bot, its knowledge base and the built web page.
+COPY bot.py knowledge.md ./
+COPY ui ./ui
+
+# Railway sets PORT; 7860 is the local default.
+ENV PORT=7860
+EXPOSE 7860
+
+# `sh -c` expands ${PORT}; `exec` makes the bot PID 1 so it gets shutdown signals.
+CMD ["sh", "-c", "exec uv run --no-sync bot.py --host 0.0.0.0 --port ${PORT}"]
