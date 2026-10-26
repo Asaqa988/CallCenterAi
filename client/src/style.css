@@ -231,7 +231,7 @@ button {
 }
 
 .orb-wrap {
-  width: min(440px, 78vw);
+  width: min(400px, 78vw, 46vh);
   aspect-ratio: 1;
 }
 #orb {
@@ -268,17 +268,44 @@ button {
 .status[data-state="muted"] .dot { background: var(--danger); }
 @keyframes pulse { 50% { transform: scale(1.7); opacity: 0.45; } }
 
-h1 {
-  margin: 20px 0 4px;
-  font-size: clamp(28px, 4.2vw, 44px);
-  line-height: 1.2;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+/* The company name, centered across the whole page above the two columns. */
+.masthead {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding-top: clamp(4px, 2vh, 20px);
 }
+h1.company {
+  margin: 0;
+  font-size: clamp(36px, 6.2vw, 72px);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  background: linear-gradient(110deg, var(--text) 25%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--text);
+}
+.product {
+  margin: 6px 0 0;
+  font-size: clamp(15px, 1.8vw, 19px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+}
+:lang(ar) .product { letter-spacing: 0; }
 .subtitle {
-  margin: 0 0 24px;
+  margin: 6px auto 0;
   color: var(--muted);
-  max-width: 34ch;
+  max-width: 46ch;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* ---- controls ---------------------------------------------------------- */
@@ -286,6 +313,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-top: 22px;
 }
 .menu-wrap { position: relative; }
 .menu {
@@ -378,7 +406,7 @@ h1 {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: calc(100dvh - 120px);
+  max-height: 620px;
   align-self: center;
   width: 100%;
   border-radius: 24px;
@@ -388,7 +416,7 @@ h1 {
   -webkit-backdrop-filter: blur(18px);
   box-shadow: var(--shadow);
   overflow: hidden;
-  height: min(620px, calc(100dvh - 120px));
+  height: clamp(340px, calc(100dvh - 290px), 620px);
 }
 .panel-head {
   display: flex;

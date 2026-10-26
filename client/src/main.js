@@ -120,7 +120,7 @@ function setError(key, detail) {
 function applyLanguage() {
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-  document.title = `${t("title")} · ${t("brand")}`;
+  document.title = `${t("brand")} · ${t("title")}`;
   document.querySelectorAll("[data-i18n]").forEach((n) => (n.textContent = t(n.dataset.i18n)));
   document.querySelectorAll("[data-i18n-label]").forEach((n) => {
     n.setAttribute("aria-label", t(n.dataset.i18nLabel));
