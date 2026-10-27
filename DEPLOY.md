@@ -28,6 +28,7 @@ server URL, a username and a password.
    | `PORT` | `7860` |
    | `GOOGLE_API_KEY` | your Gemini key |
    | `PIPECAT_ICE_SERVERS` | JSON list, see below |
+   | `N8N_UNANSWERED_WEBHOOK_URL` | optional: your n8n webhook that saves questions the bot could not answer |
 
    `PIPECAT_ICE_SERVERS` example (paste it as plain text, with the double quotes):
 

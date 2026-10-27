@@ -20,11 +20,14 @@ Run the bot using::
     uv run bot.py
 """
 
+import asyncio
 import os
 from pathlib import Path
 
+import aiohttp
 from dotenv import load_dotenv
 from loguru import logger
+from pipecat.adapters.llm.schemas.function_schema import FunctionSchema
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.frames.frames import LLMRunFrame
 from pipecat.pipeline.pipeline import Pipeline
@@ -39,6 +42,7 @@ from pipecat.runner.utils import create_transport
 from pipecat.services.google.gemini_live.stt import GeminiSTTService
 from pipecat.services.google.llm import GoogleLLMService
 from pipecat.services.google.tts import GeminiTTSService
+from pipecat.services.llm_service import FunctionCallParams
 from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.workers.runner import WorkerRunner
@@ -85,14 +89,79 @@ SYSTEM_PROMPT = """أنت مساعد صوتي ودود يتحدث باللغة �
 KNOWLEDGE_FILE = Path(__file__).parent / "knowledge.md"
 
 
-def build_system_prompt() -> str:
+# Added to the prompt only when N8N_UNANSWERED_WEBHOOK_URL is set (see below).
+LOGGING_PROMPT = """=== تسجيل الأسئلة اللي ما عندك جوابها ===
+عندك أداة اسمها log_unanswered_question.
+- استدعِها فقط لما يسأل المستخدم سؤال حقيقي عن الشركة أو خدماتها ولا تجد جوابه في "قاعدة المعلومات"، أو يكون عن شي ما بنقدّمه.
+- اكتب في الأداة السؤال بصياغة عربية واضحة ومستقلة (مثلاً: "هل بتصلحوا بطاريات؟")، حتى لو كان كلام المستخدم ناقص.
+- لا تستدعِها للتحية أو الشكر أو الكلام غير الواضح، ولا للأسئلة اللي جوابها موجود في القاعدة، ولا لأسئلة ما إلها علاقة بالشركة نهائياً.
+- لا تستدعِها أكثر من مرة لنفس السؤال.
+- بعد الاستدعاء، قل بجملة قصيرة إنك ما عندك المعلومة وإنك سجّلت السؤال عشان الفريق يضيف الجواب، واقترح التواصل مع الشركة."""
+
+
+def build_system_prompt(log_unanswered: bool = False) -> str:
     """Return the system prompt with the contents of knowledge.md appended."""
+    prompt = f"{SYSTEM_PROMPT}\n\n{LOGGING_PROMPT}" if log_unanswered else SYSTEM_PROMPT
     try:
         knowledge = KNOWLEDGE_FILE.read_text(encoding="utf-8")
     except FileNotFoundError:
         logger.warning(f"{KNOWLEDGE_FILE} not found; running without a knowledge base")
-        return SYSTEM_PROMPT
-    return f"{SYSTEM_PROMPT}\n\n=== قاعدة المعلومات ===\n{knowledge}"
+        return prompt
+    return f"{prompt}\n\n=== قاعدة المعلومات ===\n{knowledge}"
+
+
+# ---------------------------------------------------------------------------
+# Unanswered questions -> n8n
+# When the bot can't answer from knowledge.md it calls log_unanswered_question,
+# which sends the question to an n8n webhook that saves it in a Data Table.
+# Set N8N_UNANSWERED_WEBHOOK_URL in .env to turn this on; leave it empty to turn it off.
+# ---------------------------------------------------------------------------
+
+# Keep references to the background posts so they aren't garbage-collected mid-flight.
+_pending_posts: set[asyncio.Task] = set()
+
+
+async def _post_unanswered_question(url: str, question: str, session_id: str | None) -> None:
+    payload = {"question": question, "session_id": session_id or "unknown", "source": "voice-agent"}
+    try:
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as http:
+            async with http.post(url, json=payload) as resp:
+                logger.info(f"Logged unanswered question to n8n (HTTP {resp.status}): {question!r}")
+    except Exception as e:
+        logger.warning(f"Could not log unanswered question to n8n: {e}")
+
+
+def build_unanswered_tool(session_id: str | None) -> FunctionSchema | None:
+    """Return the log_unanswered_question tool, or None when no webhook is configured."""
+    url = os.getenv("N8N_UNANSWERED_WEBHOOK_URL")
+    if not url:
+        return None
+
+    async def handler(params: FunctionCallParams) -> None:
+        question = str(params.arguments.get("question", "")).strip()
+        if question:
+            # Don't make the caller wait for n8n: reply to the LLM now, post in the background.
+            task = asyncio.create_task(_post_unanswered_question(url, question, session_id))
+            _pending_posts.add(task)
+            task.add_done_callback(_pending_posts.discard)
+        await params.result_callback({"status": "recorded"})
+
+    return FunctionSchema(
+        name="log_unanswered_question",
+        description=(
+            "Record a customer question that cannot be answered from the knowledge base, "
+            "so the team can add the answer later."
+        ),
+        properties={
+            "question": {
+                "type": "string",
+                "description": "The customer's question as a clear, standalone question in Arabic.",
+            }
+        },
+        required=["question"],
+        handler=handler,
+    )
 
 
 # How the voice should sound (Gemini TTS reads this as a style prompt).
@@ -136,16 +205,19 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         ),
     )
 
+    # Tool that sends questions the bot can't answer to n8n (None when not configured)
+    unanswered_tool = build_unanswered_tool(getattr(runner_args, "session_id", None))
+
     # LLM service
     llm = GoogleLLMService(
         api_key=os.getenv("GOOGLE_API_KEY"),
         settings=GoogleLLMService.Settings(
             model=os.getenv("GOOGLE_MODEL") or "gemini-3.8-flash",
-            system_instruction=build_system_prompt(),
+            system_instruction=build_system_prompt(log_unanswered=unanswered_tool is not None),
         ),
     )
 
-    context = LLMContext()
+    context = LLMContext(tools=[unanswered_tool]) if unanswered_tool else LLMContext()
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
