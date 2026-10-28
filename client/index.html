@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <title>شركة الحياة · المساعد الصوتي</title>
+    <meta name="description" content="شركة الحياة: أنظمة طاقة شمسية للبيوت والمحلات والمزارع، بأسعار واضحة ومساعد صوتي بالعربي." />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='%23A963FE'/%3E%3C/svg%3E"
@@ -17,15 +18,21 @@
     </div>
 
     <header class="top">
-      <div class="brand">
+      <a class="brand" href="#top">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
           <circle cx="16" cy="16" r="6" fill="currentColor" />
           <g stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
             <path d="M16 3.5v3.2M16 25.3v3.2M3.5 16h3.2M25.3 16h3.2M7.2 7.2l2.3 2.3M22.5 22.5l2.3 2.3M24.8 7.2l-2.3 2.3M9.5 22.5l-2.3 2.3" />
           </g>
         </svg>
-        <span class="sr-only" data-i18n="brand"></span>
-      </div>
+        <span data-i18n="brand"></span>
+      </a>
+      <nav class="nav" aria-label="main">
+        <a href="#assistant" data-i18n="navAssistant"></a>
+        <a href="#prices" data-i18n="navPrices"></a>
+        <a href="#about" data-i18n="navAbout"></a>
+        <a href="#contact" data-i18n="navContact"></a>
+      </nav>
       <div class="top-actions">
         <button id="langBtn" class="chip" type="button"></button>
         <button id="themeBtn" class="icon-btn" type="button" data-i18n-label="theme">
@@ -35,54 +42,138 @@
       </div>
     </header>
 
-    <main class="stage">
-      <div class="masthead">
-        <h1 id="title" class="company" data-i18n="brand"></h1>
-        <p class="product" data-i18n="title"></p>
-        <p class="subtitle" data-i18n="subtitle"></p>
-      </div>
-
-      <section class="hero" aria-labelledby="title">
-        <div class="orb-wrap"><canvas id="orb" aria-hidden="true"></canvas></div>
-
-        <div class="status" id="status" data-state="idle" role="status" aria-live="polite">
-          <span class="dot"></span><span id="statusText"></span>
+    <main id="top">
+      <section class="site-hero" aria-labelledby="title">
+        <img class="site-hero-img" src="img/hero.jpg" alt="" fetchpriority="high" width="1376" height="768" />
+        <div class="site-hero-scrim" aria-hidden="true"></div>
+        <div class="wrap site-hero-body">
+          <p class="eyebrow" data-i18n="brand"></p>
+          <h1 id="title" data-i18n="heroTitle"></h1>
+          <p class="lead" data-i18n="heroSub"></p>
+          <div class="cta-row">
+            <a class="btn primary" href="#assistant" data-i18n="ctaTalk"></a>
+            <a class="btn ghost" href="#prices" data-i18n="ctaPrices"></a>
+          </div>
+          <ul class="stats" id="stats"></ul>
         </div>
+      </section>
 
-        <div class="controls">
-          <button id="micBtn" class="icon-btn lg" type="button" disabled aria-pressed="false" data-i18n-label="mute">
-            <svg class="i-mic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-            <svg class="i-mic-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M9 5.2V6a3 3 0 0 0 5.2 2M15 11v.5M5 11a7 7 0 0 0 11.6 5.2M19 11a7 7 0 0 1-.8 3.2M12 18v3" /></svg>
-          </button>
+      <section id="assistant" class="section wrap" aria-labelledby="assistantTitle">
+        <header class="section-head">
+          <p class="eyebrow" data-i18n="title"></p>
+          <h2 id="assistantTitle" data-i18n="assistantTitle"></h2>
+          <p class="section-sub" data-i18n="assistantSub"></p>
+        </header>
 
-          <button id="callBtn" class="call-btn" type="button" data-state="idle">
-            <span class="call-label" id="callLabel"></span>
-          </button>
+        <div class="stage">
+          <div class="hero">
+            <div class="orb-wrap"><canvas id="orb" aria-hidden="true"></canvas></div>
 
-          <div class="menu-wrap">
-            <button id="settingsBtn" class="icon-btn lg" type="button" aria-haspopup="true" aria-expanded="false" data-i18n-label="settings">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>
-            </button>
-            <div id="menu" class="menu" hidden>
-              <label for="micSelect" data-i18n="mic"></label>
-              <select id="micSelect" disabled></select>
-              <p class="hint" id="micHint" data-i18n="micHint"></p>
+            <div class="status" id="status" data-state="idle" role="status" aria-live="polite">
+              <span class="dot"></span><span id="statusText"></span>
             </div>
+
+            <div class="controls">
+              <button id="micBtn" class="icon-btn lg" type="button" disabled aria-pressed="false" data-i18n-label="mute">
+                <svg class="i-mic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+                <svg class="i-mic-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M9 5.2V6a3 3 0 0 0 5.2 2M15 11v.5M5 11a7 7 0 0 0 11.6 5.2M19 11a7 7 0 0 1-.8 3.2M12 18v3" /></svg>
+              </button>
+
+              <button id="callBtn" class="call-btn" type="button" data-state="idle">
+                <span class="call-label" id="callLabel"></span>
+              </button>
+
+              <div class="menu-wrap">
+                <button id="settingsBtn" class="icon-btn lg" type="button" aria-haspopup="true" aria-expanded="false" data-i18n-label="settings">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>
+                </button>
+                <div id="menu" class="menu" hidden>
+                  <label for="micSelect" data-i18n="mic"></label>
+                  <select id="micSelect" disabled></select>
+                  <p class="hint" id="micHint" data-i18n="micHint"></p>
+                </div>
+              </div>
+            </div>
+
+            <p id="error" class="error" role="alert" hidden></p>
+          </div>
+
+          <section class="panel" aria-labelledby="panelTitle">
+            <div class="panel-head">
+              <h3 id="panelTitle" data-i18n="transcript"></h3>
+              <button id="clearBtn" class="chip" type="button" data-i18n="clear"></button>
+            </div>
+            <ol id="log" class="log" aria-live="polite"></ol>
+            <p id="empty" class="empty" data-i18n="empty"></p>
+          </section>
+        </div>
+      </section>
+
+      <section id="prices" class="section wrap" aria-labelledby="pricesTitle">
+        <header class="section-head">
+          <h2 id="pricesTitle" data-i18n="pricesTitle"></h2>
+          <p class="section-sub" data-i18n="pricesSub"></p>
+        </header>
+        <div class="grid-3" id="packages"></div>
+
+        <h3 class="sub-title" data-i18n="addonsTitle"></h3>
+        <div class="grid-2" id="addons"></div>
+
+        <h3 class="sub-title" data-i18n="termsTitle"></h3>
+        <div class="grid-3 terms" id="terms"></div>
+      </section>
+
+      <section id="about" class="section wrap" aria-labelledby="aboutTitle">
+        <div class="about">
+          <div class="about-media">
+            <img src="img/about.jpg" alt="" loading="lazy" width="1376" height="768" />
+          </div>
+          <div class="about-text">
+            <h2 id="aboutTitle" data-i18n="aboutTitle"></h2>
+            <div id="aboutText"></div>
           </div>
         </div>
 
-        <p id="error" class="error" role="alert" hidden></p>
+        <h3 class="sub-title" data-i18n="stepsTitle"></h3>
+        <ol class="steps" id="steps"></ol>
+
+        <h3 class="sub-title" data-i18n="faqTitle"></h3>
+        <div class="faq" id="faq"></div>
       </section>
 
-      <section class="panel" aria-labelledby="panelTitle">
-        <div class="panel-head">
-          <h2 id="panelTitle" data-i18n="transcript"></h2>
-          <button id="clearBtn" class="chip" type="button" data-i18n="clear"></button>
+      <section id="contact" class="section wrap" aria-labelledby="contactTitle">
+        <header class="section-head">
+          <h2 id="contactTitle" data-i18n="contactTitle"></h2>
+          <p class="section-sub" data-i18n="contactSub"></p>
+        </header>
+        <div class="contact">
+          <ul class="contact-list">
+            <li><span class="lbl" data-i18n="phoneLabel"></span><span id="phoneVal"></span></li>
+            <li><span class="lbl" data-i18n="waLabel"></span><span id="waVal"></span></li>
+            <li><span class="lbl" data-i18n="mailLabel"></span><span id="mailVal"></span></li>
+            <li><span class="lbl" data-i18n="addressLabel"></span><span id="address"></span></li>
+          </ul>
+          <div class="hours">
+            <h3 data-i18n="hoursTitle"></h3>
+            <ul id="hours"></ul>
+            <div class="cta-row">
+              <a id="waCta" class="btn primary" target="_blank" rel="noopener" data-i18n="waBtn"></a>
+              <a id="callCta" class="btn ghost" data-i18n="callBtn2"></a>
+            </div>
+          </div>
         </div>
-        <ol id="log" class="log" aria-live="polite"></ol>
-        <p id="empty" class="empty" data-i18n="empty"></p>
       </section>
     </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <p><span data-i18n="rights"></span> · <span data-i18n="footerNote"></span></p>
+      </div>
+    </footer>
+
+    <a id="fab" class="fab" href="#assistant" data-state="idle">
+      <span class="dot"></span><span id="fabText"></span>
+    </a>
 
     <audio id="botAudio" autoplay></audio>
   </body>

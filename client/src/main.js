@@ -3,9 +3,12 @@ import { PipecatClient } from "@pipecat-ai/client-js";
 import { SmallWebRTCTransport } from "@pipecat-ai/small-webrtc-transport";
 import { messages } from "./i18n.js";
 import { createOrb } from "./orb.js";
+import { renderSite } from "./site.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
+  fab: $("fab"),
+  fabText: $("fabText"),
   status: $("status"),
   statusText: $("statusText"),
   callBtn: $("callBtn"),
@@ -86,6 +89,9 @@ function render() {
     state.phase === "idle" ? "start" : state.phase === "connecting" ? "connecting" : "end",
   );
 
+  el.fab.dataset.state = state.phase;
+  el.fabText.textContent = t(connected ? "fabLive" : "fabIdle");
+
   el.micBtn.disabled = !connected;
   el.micBtn.setAttribute("aria-pressed", String(state.muted));
   el.micBtn.setAttribute("aria-label", t(state.muted ? "unmute" : "mute"));
@@ -131,6 +137,7 @@ function applyLanguage() {
   document.querySelectorAll(".msg .who").forEach((n) => {
     n.textContent = t(n.closest(".msg").classList.contains("user") ? "you" : "bot");
   });
+  renderSite(lang);
   render();
 }
 
@@ -376,6 +383,21 @@ document.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") toggleMenu(false);
 });
+
+// The floating "talk to the assistant" button is only useful while the assistant
+// section is off screen.
+if ("IntersectionObserver" in window) {
+  const onScreen = new Set();
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) (e.isIntersecting ? onScreen.add(e.target) : onScreen.delete(e.target));
+      el.fab.classList.toggle("away", onScreen.size > 0);
+    },
+    { threshold: 0.35 },
+  );
+  io.observe($("assistant"));
+  io.observe(document.querySelector(".site-hero"));
+}
 
 // Leaving the page should hang up so the bot's session ends on the server.
 window.addEventListener("pagehide", () => client?.disconnect());
