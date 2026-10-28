@@ -230,9 +230,12 @@ button {
 
 /* Mic button icon follows the muted state. */
 .i-mic-off { display: none; }
-#micBtn[aria-pressed="true"] .i-mic { display: none; }
-#micBtn[aria-pressed="true"] .i-mic-off { display: block; }
-#micBtn[aria-pressed="true"] {
+#micBtn[aria-pressed="true"] .i-mic,
+#barMic[aria-pressed="true"] .i-mic { display: none; }
+#micBtn[aria-pressed="true"] .i-mic-off,
+#barMic[aria-pressed="true"] .i-mic-off { display: block; }
+#micBtn[aria-pressed="true"],
+#barMic[aria-pressed="true"] {
   background: color-mix(in srgb, var(--danger) 18%, transparent);
   border-color: color-mix(in srgb, var(--danger) 55%, transparent);
   color: var(--danger);
@@ -863,9 +866,65 @@ html {
   transition: opacity 0.25s, transform 0.25s;
 }
 .fab .dot { background: #fff; }
-.fab[data-state="connected"] { background: linear-gradient(135deg, var(--accent), var(--primary-2)); }
-.fab[data-state="connected"] .dot { animation: pulse 1s infinite; }
 .fab.away { opacity: 0; transform: translateY(14px); pointer-events: none; }
+
+/* Mid-call controls, shown when the assistant section has scrolled out of view. */
+.callbar {
+  position: fixed;
+  inset-block-end: 16px;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--menu-bg) 88%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 500;
+}
+.callbar[hidden] { display: none; }
+.callbar[data-state="listening"] .dot { background: var(--accent); animation: pulse 0.8s infinite; }
+.callbar[data-state="thinking"] .dot { background: var(--primary-2); animation: pulse 0.6s infinite; }
+.callbar[data-state="speaking"] .dot { background: var(--primary); animation: pulse 0.7s infinite; }
+.callbar[data-state="ready"] .dot { background: #3ddc97; }
+.callbar[data-state="muted"] .dot { background: var(--danger); }
+.callbar .icon-btn { width: 40px; height: 40px; border-radius: 50%; }
+.callbar .icon-btn.end {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--danger), var(--danger-2));
+}
+
+/* Pages the voice agent points at: a pulsing outline for the thing being talked about,
+   and a spotlight that dims its siblings. */
+.hl {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 18px;
+  animation: hl-pulse 1.3s ease-in-out 3;
+}
+@keyframes hl-pulse {
+  50% { outline-offset: 12px; outline-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+}
+body[data-spot] .pkg:not(.spot) { opacity: 0.4; filter: saturate(0.6); }
+.pkg { transition: opacity 0.3s, filter 0.3s, transform 0.25s, border-color 0.25s; }
+.card.chosen {
+  border-color: var(--accent);
+  box-shadow: 0 24px 60px -24px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.chosen-badge {
+  inset-inline-start: auto;
+  inset-inline-end: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--primary-2));
+}
 
 /* ---- responsive & motion ---------------------------------------------- */
 @media (max-width: 880px) {
@@ -894,7 +953,7 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .blob, .call-btn::before, .dot, .fab .dot { animation: none !important; }
+  .blob, .call-btn::before, .dot, .fab .dot, .hl { animation: none !important; }
   .card, .btn, .fab { transition: none; }
   .msg { animation: none; }
   .log { scroll-behavior: auto; }

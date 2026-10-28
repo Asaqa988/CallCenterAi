@@ -10,8 +10,8 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='%23A963FE'/%3E%3C/svg%3E"
     />
-    <script type="module" crossorigin src="./assets/index-YMLvDMG1.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-5_-a_cow.css">
+    <script type="module" crossorigin src="./assets/index-Bs1a1LSh.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-agcPcA9j.css">
   </head>
   <body>
     <div class="bg" aria-hidden="true">
@@ -44,7 +44,7 @@
     </header>
 
     <main id="top">
-      <section class="site-hero" aria-labelledby="title">
+      <section id="hero" class="site-hero" aria-labelledby="title">
         <img class="site-hero-img" src="img/hero.jpg" alt="" fetchpriority="high" width="1376" height="768" />
         <div class="site-hero-scrim" aria-hidden="true"></div>
         <div class="wrap site-hero-body">
@@ -172,9 +172,21 @@
       </div>
     </footer>
 
-    <a id="fab" class="fab" href="#assistant" data-state="idle">
+    <a id="fab" class="fab" href="#assistant">
       <span class="dot"></span><span id="fabText"></span>
     </a>
+
+    <!-- Shown mid-call when the assistant section is off screen, so mute and end stay in reach. -->
+    <div id="callbar" class="callbar" data-state="idle" hidden>
+      <span class="dot"></span><span id="barStatus"></span>
+      <button id="barMic" class="icon-btn" type="button" aria-pressed="false">
+        <svg class="i-mic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+        <svg class="i-mic-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M9 5.2V6a3 3 0 0 0 5.2 2M15 11v.5M5 11a7 7 0 0 0 11.6 5.2M19 11a7 7 0 0 1-.8 3.2M12 18v3" /></svg>
+      </button>
+      <button id="barEnd" class="icon-btn end" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </div>
 
     <audio id="botAudio" autoplay></audio>
   </body>

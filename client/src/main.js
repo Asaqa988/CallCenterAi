@@ -4,11 +4,17 @@ import { SmallWebRTCTransport } from "@pipecat-ai/small-webrtc-transport";
 import { messages } from "./i18n.js";
 import { createOrb } from "./orb.js";
 import { renderSite } from "./site.js";
+import { currentSection, goTo, registerNavigator } from "./nav.js";
+import { uiState } from "./ui-state.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   fab: $("fab"),
   fabText: $("fabText"),
+  bar: $("callbar"),
+  barStatus: $("barStatus"),
+  barMic: $("barMic"),
+  barEnd: $("barEnd"),
   status: $("status"),
   statusText: $("statusText"),
   callBtn: $("callBtn"),
@@ -89,13 +95,19 @@ function render() {
     state.phase === "idle" ? "start" : state.phase === "connecting" ? "connecting" : "end",
   );
 
-  el.fab.dataset.state = state.phase;
-  el.fabText.textContent = t(connected ? "fabLive" : "fabIdle");
+  el.fabText.textContent = t("fabIdle");
+  el.barStatus.textContent = t("status" + label);
+  el.bar.dataset.state = key;
+  el.barEnd.setAttribute("aria-label", t("end"));
+  el.barEnd.title = t("end");
+  updateDock();
 
+  for (const b of [el.micBtn, el.barMic]) {
+    b.setAttribute("aria-pressed", String(state.muted));
+    b.setAttribute("aria-label", t(state.muted ? "unmute" : "mute"));
+    b.title = t(state.muted ? "unmute" : "mute");
+  }
   el.micBtn.disabled = !connected;
-  el.micBtn.setAttribute("aria-pressed", String(state.muted));
-  el.micBtn.setAttribute("aria-label", t(state.muted ? "unmute" : "mute"));
-  el.micBtn.title = t(state.muted ? "unmute" : "mute");
   el.micSelect.disabled = !connected || el.micSelect.options.length === 0;
   el.micHint.hidden = connected && el.micSelect.options.length > 0;
 
@@ -145,16 +157,22 @@ function applyTheme() {
   document.documentElement.dataset.theme = theme;
 }
 
-el.langBtn.addEventListener("click", () => {
-  lang = lang === "ar" ? "en" : "ar";
+function setLang(next) {
+  if (!messages[next] || next === lang) return;
+  lang = next;
   store.set("lang", lang);
   applyLanguage();
-});
-el.themeBtn.addEventListener("click", () => {
-  theme = theme === "dark" ? "light" : "dark";
+  sendUiState();
+}
+function setTheme(next) {
+  if (!["light", "dark"].includes(next) || next === theme) return;
+  theme = next;
   store.set("theme", theme);
   applyTheme();
-});
+  sendUiState();
+}
+el.langBtn.addEventListener("click", () => setLang(lang === "ar" ? "en" : "ar"));
+el.themeBtn.addEventListener("click", () => setTheme(theme === "dark" ? "light" : "dark"));
 
 // ---- transcript ---------------------------------------------------------------
 const turn = { user: null, bot: null };
@@ -273,7 +291,9 @@ function createClient() {
       onBotReady: () => {
         state.phase = "connected";
         render();
+        sendUiState();
       },
+      onUICommand: handleUICommand,
       onDisconnected: () => resetSession(),
       onError: (msg) => {
         const detail = msg?.data?.error || msg?.data?.message;
@@ -355,12 +375,17 @@ el.callBtn.addEventListener("click", () => {
   else if (state.phase === "connected") stop();
 });
 
-el.micBtn.addEventListener("click", () => {
+function toggleMute() {
   if (!client) return;
   state.muted = !state.muted;
   client.enableMic(!state.muted);
   if (state.muted) orb.setLevel(0);
   render();
+}
+el.micBtn.addEventListener("click", toggleMute);
+el.barMic.addEventListener("click", toggleMute);
+el.barEnd.addEventListener("click", () => {
+  if (state.phase === "connected") stop();
 });
 
 el.micSelect.addEventListener("change", () => {
@@ -384,19 +409,132 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") toggleMenu(false);
 });
 
-// The floating "talk to the assistant" button is only useful while the assistant
-// section is off screen.
+// ---- docked controls -----------------------------------------------------------
+// While the assistant section is off screen, the user still needs the call controls: an
+// idle visitor gets a "talk" shortcut, and someone mid-call gets a small bar with mute and
+// end (the agent may have scrolled the page away from the buttons).
+const onScreen = new Set();
+
+function updateDock() {
+  const connected = state.phase === "connected";
+  const assistantOn = onScreen.has("assistant");
+  el.fab.classList.toggle("away", connected || assistantOn || onScreen.has("hero"));
+  el.bar.hidden = !(connected && !assistantOn);
+}
+
 if ("IntersectionObserver" in window) {
-  const onScreen = new Set();
   const io = new IntersectionObserver(
     (entries) => {
-      for (const e of entries) (e.isIntersecting ? onScreen.add(e.target) : onScreen.delete(e.target));
-      el.fab.classList.toggle("away", onScreen.size > 0);
+      for (const e of entries) (e.isIntersecting ? onScreen.add(e.target.id) : onScreen.delete(e.target.id));
+      updateDock();
     },
     { threshold: 0.35 },
   );
   io.observe($("assistant"));
-  io.observe(document.querySelector(".site-hero"));
+  io.observe($("hero"));
+
+  // The section crossing the middle of the screen is "where the user is". The voice
+  // agent is told this so it can tell whether something is already in front of them.
+  const band = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) if (e.isIntersecting) uiState.set({ visibleSectionId: e.target.id });
+    },
+    { rootMargin: "-45% 0px -45% 0px" },
+  );
+  for (const id of ["hero", "assistant", "prices", "about", "contact"]) band.observe($(id));
+}
+
+// ---- voice agent -> page ---------------------------------------------------------
+// The agent sends UI commands over the same connection. Moving around only ever scrolls
+// or toggles classes; nothing here reloads the page (that would end the call).
+registerNavigator((href) => {
+  document.querySelector(href)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  history.replaceState(null, "", href);
+});
+
+const SECTION_TITLE = {
+  assistant: "assistantTitle",
+  prices: "pricesTitle",
+  about: "aboutTitle",
+  contact: "contactTitle",
+};
+
+function handleUICommand({ command, payload }) {
+  const p = payload || {};
+  switch (command) {
+    case "show": {
+      if (p.item) {
+        uiState.highlight(p.item); // scrolls it into view if it is not already
+      } else if (p.mode === "navigate") {
+        uiState.set({ focusSectionId: p.section });
+      } else if (SECTION_TITLE[p.section]) {
+        uiState.highlight(SECTION_TITLE[p.section]);
+      }
+      uiState.spotlight(p.spotlight && p.item ? p.item : null);
+      break;
+    }
+    case "select":
+      uiState.set({ selectedPackage: p.package ?? null });
+      break;
+    case "set-language":
+      setLang(p.lang);
+      break;
+    case "set-theme":
+      setTheme(p.mode);
+      break;
+  }
+}
+
+function inView(node) {
+  const r = node.getBoundingClientRect();
+  return r.top >= 70 && r.bottom <= window.innerHeight - 70;
+}
+
+uiState.subscribe((s, changed) => {
+  if (changed.includes("focusSectionId") && s.focusSectionId) {
+    goTo(`#${s.focusSectionId}`);
+    uiState.set({ focusSectionId: null });
+  }
+  if (changed.includes("highlightId")) {
+    document.querySelector(".hl")?.classList.remove("hl");
+    const node = s.highlightId && $(s.highlightId);
+    if (node) {
+      if (node.tagName === "DETAILS") node.open = true;
+      node.classList.add("hl");
+      if (!inView(node)) node.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+  if (changed.includes("spotlightId")) {
+    document.querySelector(".spot")?.classList.remove("spot");
+    document.body.toggleAttribute("data-spot", !!s.spotlightId);
+    if (s.spotlightId) $(s.spotlightId)?.classList.add("spot");
+  }
+  if (changed.includes("selectedPackage")) {
+    renderSite(lang);
+    sendUiState();
+  }
+  if (changed.includes("visibleSectionId")) sendUiState();
+});
+
+// ---- page -> voice agent -----------------------------------------------------------
+// Tell the agent where the user is, so its tools can decide between "scroll there" and
+// "it is already on screen". Debounced so scrolling does not flood the connection.
+let uiTimer = 0;
+function sendUiState() {
+  clearTimeout(uiTimer);
+  uiTimer = setTimeout(() => {
+    if (state.phase !== "connected" || !client) return;
+    try {
+      client.sendUIEvent("ui-state", {
+        section: currentSection(),
+        lang,
+        theme,
+        selectedPackage: uiState.get().selectedPackage,
+      });
+    } catch {
+      /* the connection is closing */
+    }
+  }, 200);
 }
 
 // Leaving the page should hang up so the bot's session ends on the server.

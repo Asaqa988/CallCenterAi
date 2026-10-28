@@ -29,6 +29,7 @@ server URL, a username and a password.
    | `GOOGLE_API_KEY` | your Gemini key |
    | `PIPECAT_ICE_SERVERS` | JSON list, see below |
    | `N8N_UNANSWERED_WEBHOOK_URL` | optional: your n8n webhook that saves questions the bot could not answer |
+   | `UI_TOOLS` | optional: the bot scrolls and highlights the page while it talks. Default `auto` (a background model does it, no extra silence). `tools` lets the voice model call the tools itself (about 2 seconds more silence per answer). `0` turns it off |
 
    `PIPECAT_ICE_SERVERS` example (paste it as plain text, with the double quotes):
 

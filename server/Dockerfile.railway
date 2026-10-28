@@ -13,7 +13,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project --no-dev
 
 # The bot, its knowledge base and the built web page.
-COPY bot.py knowledge.md ./
+COPY bot.py ui_tools.py knowledge.md ./
 COPY ui ./ui
 
 # Railway sets PORT; 7860 is the local default.

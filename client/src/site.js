@@ -1,4 +1,5 @@
-import { content, contact, installment } from "./content.js";
+import { content, contact, ids, installment } from "./content.js";
+import { uiState } from "./ui-state.js";
 
 function h(tag, props = {}, ...kids) {
   const n = document.createElement(tag);
@@ -14,8 +15,9 @@ function h(tag, props = {}, ...kids) {
 const $ = (id) => document.getElementById(id);
 const fill = (id, ...kids) => $(id).replaceChildren(...kids);
 
-function packageCard(p, c) {
+function packageCard(p, c, id) {
   const priced = p.price != null;
+  const chosen = uiState.get().selectedPackage === id;
   const price = priced
     ? h(
         "p",
@@ -43,12 +45,13 @@ function packageCard(p, c) {
 
   return h(
     "article",
-    { class: `card pkg${p.badge ? " featured" : ""}` },
+    { id: `pkg-${id}`, class: `card pkg${p.badge ? " featured" : ""}${chosen ? " chosen" : ""}` },
     h(
       "div",
       { class: "media" },
       h("img", { src: `img/${p.img}`, alt: p.alt, loading: "lazy", width: "1376", height: "768" }),
       p.badge ? h("span", { class: "badge" }, p.badge) : null,
+      chosen ? h("span", { class: "badge chosen-badge" }, c.chosen) : null,
     ),
     h(
       "div",
@@ -63,10 +66,10 @@ function packageCard(p, c) {
   );
 }
 
-function addonCard(a, c) {
+function addonCard(a, c, id) {
   return h(
     "article",
-    { class: "card addon" },
+    { id: `addon-${id}`, class: "card addon" },
     h("div", { class: "media" }, h("img", { src: `img/${a.img}`, alt: a.alt, loading: "lazy", width: "1376", height: "768" })),
     h(
       "div",
@@ -90,9 +93,12 @@ export function renderSite(lang) {
     "stats",
     ...c.stats.map((s) => h("li", {}, h("strong", {}, s.n), h("span", {}, s.l))),
   );
-  fill("packages", ...c.packages.map((p) => packageCard(p, c)));
-  fill("addons", ...c.addons.map((a) => addonCard(a, c)));
-  fill("terms", ...c.terms.map((x) => h("div", { class: "term" }, h("h3", {}, x.t), h("p", {}, x.p))));
+  fill("packages", ...c.packages.map((p, i) => packageCard(p, c, ids.packages[i])));
+  fill("addons", ...c.addons.map((a, i) => addonCard(a, c, ids.addons[i])));
+  fill(
+    "terms",
+    ...c.terms.map((x, i) => h("div", { id: `term-${ids.terms[i]}`, class: "term" }, h("h3", {}, x.t), h("p", {}, x.p))),
+  );
 
   fill("aboutText", ...c.about.p.map((t) => h("p", {}, t)), h("p", { class: "note" }, c.about.not));
   fill(
@@ -103,14 +109,22 @@ export function renderSite(lang) {
   );
   fill(
     "faq",
-    ...c.faq.map((f) => h("details", {}, h("summary", {}, f.q), h("p", {}, f.a))),
+    ...c.faq.map((f, i) => h("details", { id: `faq-${ids.faq[i]}` }, h("summary", {}, f.q), h("p", {}, f.a))),
   );
 
   fill("hours", ...c.hours.map((r) => h("li", {}, h("span", {}, r.d), h("bdi", {}, r.h))));
   fill("address", c.address);
+  // Once the user has picked a system, the WhatsApp message is ready-made for it.
+  const picked = uiState.get().selectedPackage;
+  const pickedIdx = ids.packages.indexOf(picked);
+  const wa =
+    pickedIdx >= 0
+      ? `${contact.whatsapp.href}?text=${encodeURIComponent(c.waIntro + c.packages[pickedIdx].name)}`
+      : contact.whatsapp.href;
+
   fill("phoneVal", h("a", { href: contact.phone.href, dir: "ltr" }, contact.phone.display));
-  fill("waVal", h("a", { href: contact.whatsapp.href, target: "_blank", rel: "noopener", dir: "ltr" }, contact.whatsapp.display));
+  fill("waVal", h("a", { href: wa, target: "_blank", rel: "noopener", dir: "ltr" }, contact.whatsapp.display));
   fill("mailVal", h("a", { href: `mailto:${contact.email}`, dir: "ltr" }, contact.email));
-  $("waCta").href = contact.whatsapp.href;
+  $("waCta").href = wa;
   $("callCta").href = contact.phone.href;
 }

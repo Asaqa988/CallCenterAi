@@ -9,6 +9,15 @@ export const contact = {
   site: "alhayat-example.com",
 };
 
+// Element ids, shared by both languages (the lists below keep the same order). The voice
+// agent addresses cards by these.
+export const ids = {
+  packages: ["small", "medium", "business"],
+  addons: ["battery", "maintenance"],
+  terms: ["visit", "payment", "warranty"],
+  faq: ["weather", "payback", "cleaning", "outside", "netmetering"],
+};
+
 // Installment terms: 20% down, the rest over 24 months, no interest.
 export const INSTALLMENT = { down: 0.2, months: 24 };
 
@@ -133,6 +142,8 @@ export const content = {
       { d: "الجمعة", h: "عطلة" },
     ],
     address: "عمّان، الجبيهة",
+    waIntro: "مرحباً، بدي أستفسر عن ",
+    chosen: "اخترته",
     perMonth: "شهرياً",
     downLabel: "دفعة أولى",
     installLabel: "أو تقسيط",
@@ -250,6 +261,8 @@ export const content = {
       { d: "Friday", h: "Closed" },
     ],
     address: "Jubeiha, Amman",
+    waIntro: "Hello, I'd like to ask about the ",
+    chosen: "Your pick",
     perMonth: "per month",
     downLabel: "Down payment",
     installLabel: "Or installments",

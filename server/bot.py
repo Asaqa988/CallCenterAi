@@ -47,6 +47,7 @@ from pipecat.services.google.tts import GeminiTTSService
 from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.workers.runner import WorkerRunner
+from ui_tools import UIController, UIRouter
 
 load_dotenv(override=True)
 
@@ -97,9 +98,20 @@ LOGGING_PROMPT = """=== الأسئلة اللي ما عندك جوابها ===
 لا تقل إنك سجّلت شي إلا إذا فعلاً ما لقيت الجواب في القاعدة."""
 
 
-def build_system_prompt(log_unanswered: bool = False) -> str:
+# Added when the page-driving tools are on (see ui_tools.py). One line on purpose: what to
+# say after each tool comes back in the tool's own `hint`, not in this prompt.
+UI_PROMPT = (
+    "كل ما حكيت عن إشي (الأسعار، الأنظمة، الضمان، التقسيط، الشركة، التواصل) نادِ أداة العرض "
+    "المناسبة حتى يشوفه المستخدم على الشاشة: ابدأ بجملة الجواب بصوتك أولاً ثم نادِ الأداة، "
+    "وكل أداة بترجّع hint فاتبعه ولا تقرأه بصوت عالٍ."
+)
+
+
+def build_system_prompt(log_unanswered: bool = False, ui_tools: bool = False) -> str:
     """Return the system prompt with the contents of knowledge.md appended."""
     prompt = f"{SYSTEM_PROMPT}\n\n{LOGGING_PROMPT}" if log_unanswered else SYSTEM_PROMPT
+    if ui_tools:
+        prompt = f"{prompt}\n\n{UI_PROMPT}"
     try:
         knowledge = KNOWLEDGE_FILE.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -142,6 +154,19 @@ CHECK_SCHEMA = {
 }
 
 
+def recent_history(context: LLMContext) -> str:
+    """The last few plain-text turns, for the background checks that need context."""
+    recent = []
+    for message in context.get_messages()[-6:]:
+        # Provider-specific messages aren't plain dicts; only plain text turns are useful here.
+        if not isinstance(message, dict):
+            continue
+        content = message.get("content")
+        if message.get("role") in ("user", "assistant") and isinstance(content, str):
+            recent.append(f"{message['role']}: {content}")
+    return "\n".join(recent)
+
+
 class UnansweredQuestionLogger:
     """Checks each finished user turn in the background and posts unanswered questions to n8n."""
 
@@ -172,15 +197,7 @@ class UnansweredQuestionLogger:
         text = (text or "").strip()
         if not text:
             return
-        recent = []
-        for message in context.get_messages()[-6:]:
-            # Provider-specific messages aren't plain dicts; only plain text turns are useful here.
-            if not isinstance(message, dict):
-                continue
-            content = message.get("content")
-            if message.get("role") in ("user", "assistant") and isinstance(content, str):
-                recent.append(f"{message['role']}: {content}")
-        task = asyncio.create_task(self._check_and_log(text, "\n".join(recent)))
+        task = asyncio.create_task(self._check_and_log(text, recent_history(context)))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
@@ -255,16 +272,27 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     # Background check that sends questions the bot can't answer to n8n (None when not configured)
     unanswered_logger = UnansweredQuestionLogger.from_env(getattr(runner_args, "session_id", None))
 
+    # Scrolling and highlighting things on the web page while the bot talks (see ui_tools.py).
+    # UI_TOOLS=auto (default): a background router moves the page in parallel with the answer.
+    # UI_TOOLS=tools: the model calls the tools itself (gets a hint back, but ~2s more silence).
+    # UI_TOOLS=0: the page is not driven.
+    ui_mode = (os.getenv("UI_TOOLS") or "auto").lower()
+    ui = UIController() if ui_mode != "0" else None
+    model_tools = ui is not None and ui_mode == "tools"
+    ui_router = UIRouter(ui, api_key) if ui and not model_tools else None
+
     # LLM service
     llm = GoogleLLMService(
         api_key=os.getenv("GOOGLE_API_KEY"),
         settings=GoogleLLMService.Settings(
             model=os.getenv("GOOGLE_MODEL") or "gemini-3.8-flash",
-            system_instruction=build_system_prompt(log_unanswered=unanswered_logger is not None),
+            system_instruction=build_system_prompt(
+                log_unanswered=unanswered_logger is not None, ui_tools=model_tools
+            ),
         ),
     )
 
-    context = LLMContext()
+    context = LLMContext(tools=ui.tools()) if model_tools else LLMContext()
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
@@ -275,6 +303,12 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         @user_aggregator.event_handler("on_user_turn_stopped")
         async def on_user_turn_stopped(aggregator, strategy, message):
             unanswered_logger.check(message.content, context)
+
+    if ui_router:
+
+        @user_aggregator.event_handler("on_user_turn_stopped")
+        async def route_page(aggregator, strategy, message):
+            ui_router.route(message.content, recent_history(context))
 
     # Pipeline - assembled from reusable components
     pipeline = Pipeline(
@@ -301,6 +335,16 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     runner = WorkerRunner(handle_sigint=runner_args.handle_sigint)
 
     await runner.add_workers(worker)
+
+    if ui:
+        ui.attach(worker)
+
+        # The page reports where the user is (which section, language, theme).
+        @worker.rtvi.event_handler("on_ui_message")
+        async def on_ui_message(rtvi, message):
+            data = getattr(message, "data", None)
+            if getattr(data, "event", None) == "ui-state":
+                ui.update_from_client(data.payload or {})
 
     @worker.rtvi.event_handler("on_client_ready")
     async def on_client_ready(rtvi):
